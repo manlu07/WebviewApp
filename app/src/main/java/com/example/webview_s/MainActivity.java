@@ -1,9 +1,10 @@
 package com.example.webview_s;
 
 import android.app.DownloadManager;
-import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -15,7 +16,12 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.webview_s.R;
+
 import java.io.File;
+import java.io.FileInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -38,14 +44,15 @@ public class MainActivity extends AppCompatActivity {
                 downloadWebViewApk();
             }
         });
+
+        // Fetch WebView version and SHA-1 fingerprint and display in the WebView
+        String webViewInfo = getWebViewInfo();
+        webView.loadData(webViewInfo, "text/html", "UTF-8");
     }
 
     private void setupWebView() {
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
-
-        String webViewInfo = getWebViewInfo();
-        webView.loadData(webViewInfo, "text/html", "UTF-8");
     }
 
     private String getWebViewInfo() {
@@ -55,8 +62,9 @@ public class MainActivity extends AppCompatActivity {
         try {
             ApplicationInfo androidWebViewInfo = pm.getApplicationInfo("com.android.webview", 0);
             String androidWebViewVersion = pm.getPackageInfo(androidWebViewInfo.packageName, 0).versionName;
+            String androidWebViewSHA1 = getSHA1(androidWebViewInfo.packageName);
 
-            return "Android WebView version: " + androidWebViewVersion;
+            return "Android WebView version: " + androidWebViewVersion + "\n" + "Packagename : com.google.android.com" + "\n" + "SHA1: " + androidWebViewSHA1;
         } catch (PackageManager.NameNotFoundException e) {
         }
 
@@ -64,8 +72,9 @@ public class MainActivity extends AppCompatActivity {
         try {
             ApplicationInfo googleWebViewInfo = pm.getApplicationInfo("com.google.android.webview", 0);
             String googleWebViewVersion = pm.getPackageInfo(googleWebViewInfo.packageName, 0).versionName;
+            String googleWebViewSHA1 = getSHA1(googleWebViewInfo.packageName);
 
-            return "Google WebView version: " + googleWebViewVersion;
+            return "Google WebView version: " + googleWebViewVersion + "\n" + "Packagename : com.google.android.com" + "\n " + "SHA1: " + googleWebViewSHA1;
         } catch (PackageManager.NameNotFoundException e) {
         }
 
@@ -116,5 +125,35 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return null;
+    }
+
+    // Utility class for calculating SHA-1
+    private String getSHA1(String packageName) {
+        try {
+            PackageManager pm = getPackageManager();
+            PackageInfo packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES);
+
+            android.content.pm.Signature[] signatures = packageInfo.signatures;
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+
+            for (Signature signature : signatures) {
+                byte[] signatureBytes = signature.toByteArray();
+                md.update(signatureBytes);
+            }
+
+            byte[] digestBytes = md.digest();
+            StringBuilder sb = new StringBuilder();
+
+            for (byte digestByte : digestBytes) {
+                sb.append(Integer.toString((digestByte & 0xff) + 0x100, 16).substring(1));
+            }
+
+            return sb.toString();
+        } catch (PackageManager.NameNotFoundException | NoSuchAlgorithmException e) {
+
+            e.printStackTrace();
+        }
+
+        return "SHA1 not available";
     }
 }
